@@ -15,6 +15,7 @@ from pytom_tm.matching import TemplateMatchingGPU
 from pytom_tm.weights import create_wedge, power_spectrum_profile, profile_to_weighting, create_gaussian_band_pass
 from pytom_tm.io import read_mrc_meta_data, read_mrc, write_mrc, UnequalSpacingError
 from pytom_tm import __version__ as PYTOM_TM_VERSION
+from pytom_tm.utils import get_defocus_offsets
 
 
 def load_json_to_tmjob(file_name: pathlib.Path, load_for_extraction: bool = True) -> TMJob:
@@ -563,6 +564,20 @@ class TMJob:
         )
         # apply mask directly to prevent any wedge convolution with weird edges
         template *= mask
+
+        # adjust ctf parameters for this specific patch in the tomogram
+        full_tomo_center = [s / 2 for s in self.tomo_shape]
+        patch_center = [o + s / 2 for o, s in zip(self.search_origin, self.search_size)]
+        relative_patch_center = [(pc - tc) for pc, tc in zip(patch_center, full_tomo_center)]
+        # express in um as the defocus is expressed in um
+        relative_patch_center_um = [x * self.voxel_size * 1e-4 for x in relative_patch_center]
+        defocus_offsets = get_defocus_offsets(
+            relative_patch_center_um[0],
+            relative_patch_center_um[2],
+            self.tilt_angles
+        )
+        for ctf, defocus_shift in zip(self.ctf_data, defocus_offsets):
+            ctf['defocus'] = ctf['defocus'] + defocus_shift
 
         # init tomogram and template weighting
         tomo_filter, template_wedge = 1, 1
