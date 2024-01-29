@@ -63,6 +63,10 @@ class TemplateMatchingPlan:
         self.scores = cp.ones_like(self.volume)*-1000
         self.angles = cp.ones_like(self.volume)*-1000
 
+        # sum and squared_sum volumes
+        self.score_sum = cp.zeros_like(self.volume)
+        self.score_sum_squared = cp.zeros_like(self.volume)
+
         # wait for stream to complete the work
         cp.cuda.stream.get_current_stream().synchronize()
 
@@ -138,7 +142,8 @@ class TemplateMatchingGPU:
 
         self.plan = TemplateMatchingPlan(volume, template, mask, device_id, wedge=wedge)
 
-    def run(self) -> tuple[npt.NDArray[float], npt.NDArray[float], dict]:
+    def run(self) -> tuple[npt.NDArray[float], npt.NDArray[float], npt.NDArray[float],
+    npt.NDArray[float], dict]:
         """Run the template matching job.
 
         Returns
@@ -247,13 +252,17 @@ class TemplateMatchingGPU:
                     self.plan.ccc_map[self.stats_roi]
                 ) / roi_size
             )
+            # update sum and square sum
+            self.plan.score_sum += self.plan.ccc_map
+            self.plan.score_sum_squared += self.plan.ccc_map ** 2
 
         self.stats['search_space'] = int(roi_size * len(self.angle_ids))
         self.stats['variance'] = float(self.stats['variance'] / len(self.angle_ids))
         self.stats['std'] = float(cp.sqrt(self.stats['variance']))
 
         # package results back to the CPU
-        results = (self.plan.scores.get(), self.plan.angles.get(), self.stats)
+        results = (self.plan.scores.get(), self.plan.angles.get(), self.plan.score_sum.get(),
+                   self.plan.score_sum_squared.get(), self.stats)
 
         # clear all the used gpu memory
         self.plan.clean()
