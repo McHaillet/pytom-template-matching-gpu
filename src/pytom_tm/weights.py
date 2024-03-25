@@ -505,6 +505,8 @@ def _create_tilt_weighted_wedge(
     # generate 2d weights along the tilt axis
     ramp_weighting = np.tile(ramp_filter[:, np.newaxis], (1, image_size))
 
+    a, b, c = 0.245, -1.665, 2.81
+
     for i, alpha in enumerate(tilt_angles):
         if ctf_params_per_tilt is not None:
             ctf = np.fft.fftshift(
@@ -545,12 +547,12 @@ def _create_tilt_weighted_wedge(
 
         # weight with exposure and tilt dampening
         if accumulated_dose_per_tilt is not None:
-            q_squared = (q_grid / (2 * pixel_size_angstrom)) ** 2
-            sigma_motion = np.sqrt(accumulated_dose_per_tilt[i] * 4 / (8 * np.pi ** 2))
+            q_ny = q_grid / (2 * pixel_size_angstrom)
+            # sigma_motion = np.sqrt(accumulated_dose_per_tilt[i] * 4 / (8 * np.pi ** 2))
             weighted_tilt = (
                     rotated *
                     np.cos(alpha) *  # apply tilt-dependent weighting
-                    np.exp(-2 * np.pi ** 2 * sigma_motion ** 2 * q_squared)  # apply dose-weighting
+                    np.exp(-accumulated_dose_per_tilt[i] / (2 * (a * (q_ny ** b) + c)))
             )
         else:
             weighted_tilt = (
