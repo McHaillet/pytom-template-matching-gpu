@@ -142,8 +142,7 @@ class TemplateMatchingGPU:
 
         self.plan = TemplateMatchingPlan(volume, template, mask, device_id, wedge=wedge)
 
-    def run(self) -> tuple[npt.NDArray[float], npt.NDArray[float], npt.NDArray[float],
-    npt.NDArray[float], dict]:
+    def run(self) -> tuple[npt.NDArray[float], npt.NDArray[float], dict]:
         """Run the template matching job.
 
         Returns
@@ -256,13 +255,23 @@ class TemplateMatchingGPU:
             self.plan.score_sum += self.plan.ccc_map
             self.plan.score_sum_squared += self.plan.ccc_map ** 2
 
+        mean = self.plan.score_sum / len(self.angle_ids)
+        std = cp.sqrt(
+            (self.plan.score_sum_squared -
+                (self.plan.score_sum ** 2 / len(self.angle_ids)))
+            / (len(self.angle_ids) - 1)
+        )
+        self.plan.scores = (self.plan.scores - mean) / std
         self.stats['search_space'] = int(roi_size * len(self.angle_ids))
         self.stats['variance'] = float(self.stats['variance'] / len(self.angle_ids))
         self.stats['std'] = float(cp.sqrt(self.stats['variance']))
 
         # package results back to the CPU
-        results = (self.plan.scores.get(), self.plan.angles.get(), self.plan.score_sum.get(),
-                   self.plan.score_sum_squared.get(), self.stats)
+        results = (
+            self.plan.scores.get(),
+            self.plan.angles.get(),
+            self.stats
+        )
 
         # clear all the used gpu memory
         self.plan.clean()

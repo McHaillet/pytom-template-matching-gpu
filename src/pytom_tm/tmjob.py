@@ -648,13 +648,7 @@ class TMJob:
         results = tm.run()
         score_volume = results[0][:self.search_size[0], :self.search_size[1], :self.search_size[2]]
         angle_volume = results[1][:self.search_size[0], :self.search_size[1], :self.search_size[2]]
-        mean = results[2] / len(angle_ids)
-        std = np.sqrt((results[3] - (results[2] ** 2 / len(angle_ids))) / (len(angle_ids) - 1))
-        write_mrc(self.output_dir.joinpath(f'{self.tomo_id}_scores_mean.mrc'), mean,
-                  self.voxel_size)
-        write_mrc(self.output_dir.joinpath(f'{self.tomo_id}_scores_std.mrc'), std,
-                  self.voxel_size)
-        self.job_stats = results[4]
+        self.job_stats = results[2]
 
         del tm  # delete the template matching plan
 
