@@ -620,7 +620,8 @@ class TMJob:
             template_wedge *= spectrum_filter
 
         template_conv = np.fft.irfftn(np.fft.rfftn(template) * template_wedge, s=template.shape)
-        write_mrc('')
+        write_mrc('template.mrc', template_conv, self.voxel_size)
+        write_mrc('wedge.mrc', template_wedge, self.voxel_size)
 
         # load rotation search
         angle_ids = list(range(
