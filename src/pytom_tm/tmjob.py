@@ -14,6 +14,7 @@ from pytom_tm.angles import AVAILABLE_ROTATIONAL_SAMPLING, load_angle_list
 from pytom_tm.matching import TemplateMatchingGPU
 from pytom_tm.weights import create_wedge, power_spectrum_profile, profile_to_weighting, create_gaussian_band_pass
 from pytom_tm.io import read_mrc_meta_data, read_mrc, write_mrc, UnequalSpacingError
+from pytom_tm.correlation import mean_under_mask, std_under_mask
 from pytom_tm import __version__ as PYTOM_TM_VERSION
 
 
@@ -260,15 +261,13 @@ class TMJob:
         self.whitening_filter = self.output_dir.joinpath(f'{self.tomo_id}_whitening_filter.npy')
         if self.whiten_spectrum and not job_loaded_for_extraction:
             logging.info('Estimating whitening filter...')
-            weights = 1 / np.sqrt(
-                power_spectrum_profile(
-                    read_mrc(self.tomogram)[
-                        self.search_origin[0]: self.search_origin[0] + self.search_size[0],
-                        self.search_origin[1]: self.search_origin[1] + self.search_size[1],
-                        self.search_origin[2]: self.search_origin[2] + self.search_size[2]
-                    ]
-                )
-            )
+            tomo = read_mrc(self.tomogram)[
+                self.search_origin[0]: self.search_origin[0] + self.search_size[0],
+                self.search_origin[1]: self.search_origin[1] + self.search_size[1],
+                self.search_origin[2]: self.search_origin[2] + self.search_size[2]
+            ]
+            tomo = (tomo - tomo.max()) / tomo.std()
+            weights = (power_spectrum_profile(tomo))
             weights /= weights.max()  # scale to 1
             np.save(self.whitening_filter, weights)
 
@@ -562,7 +561,7 @@ class TMJob:
             read_mrc(self.mask)
         )
         # apply mask directly to prevent any wedge convolution with weird edges
-        template *= mask
+        # template *= mask
 
         # init tomogram and template weighting
         tomo_filter, template_wedge = 1, 1
@@ -581,28 +580,17 @@ class TMJob:
                 self.high_pass
             ).astype(np.float32)
 
-        # then multiply with optional whitening filters
-        if self.whiten_spectrum:
-            tomo_filter *= profile_to_weighting(
-                np.load(self.whitening_filter),
-                search_volume.shape
-            ).astype(np.float32)
-            template_wedge *= profile_to_weighting(
-                np.load(self.whitening_filter),
-                self.template_shape
-            ).astype(np.float32)
-
         # if tilt angles are provided we can create wedge filters
         if self.tilt_angles is not None:
             # for the tomogram a binary wedge is generated to explicitly set the missing wedge region to 0
-            tomo_filter *= create_wedge(
-                search_volume.shape,
-                self.tilt_angles,
-                self.voxel_size,
-                cut_off_radius=1.,
-                angles_in_degrees=True,
-                tilt_weighting=False
-            ).astype(np.float32)
+            # tomo_filter *= create_wedge(
+            #     search_volume.shape,
+            #     self.tilt_angles,
+            #     self.voxel_size,
+            #     cut_off_radius=1.,
+            #     angles_in_degrees=True,
+            #     tilt_weighting=False
+            # ).astype(np.float32)
             # for the template a binary or per-tilt-weighted wedge is generated depending on the options
             template_wedge *= create_wedge(
                 self.template_shape,
@@ -617,6 +605,22 @@ class TMJob:
 
         # apply the optional band pass and whitening filter to the search region
         search_volume = np.real(irfftn(rfftn(search_volume) * tomo_filter, s=search_volume.shape))
+
+        if self.whiten_spectrum:
+            template_conv = np.fft.irfftn(np.fft.rfftn(template) * template_wedge, s=template.shape)
+            mean = mean_under_mask(template_conv, mask)
+            std = std_under_mask(template_conv, mask)
+            template_conv = (template_conv - mean) / std
+            template_spectrum = profile_to_weighting(power_spectrum_profile(template_conv), template.shape)
+
+            tomo_spectrum = np.load(self.whitening_filter)
+            spectrum_filter = profile_to_weighting(tomo_spectrum, template.shape)
+            spectrum_filter /= template_spectrum
+
+            template_wedge *= spectrum_filter
+
+        template_conv = np.fft.irfftn(np.fft.rfftn(template) * template_wedge, s=template.shape)
+        write_mrc('')
 
         # load rotation search
         angle_ids = list(range(

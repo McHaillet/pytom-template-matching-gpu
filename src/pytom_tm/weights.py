@@ -696,7 +696,7 @@ def power_spectrum_profile(image: npt.NDArray[float]) -> npt.NDArray[float]:
     if len(image.shape) not in [2, 3]:
         raise ValueError('Power spectrum profile calculation only works for 2d/3d arrays.')
 
-    _, power_profile = radial_average(np.abs(np.fft.rfftn(image)) ** 2)
+    _, power_profile = radial_average(np.abs(np.fft.rfftn(image)))
 
     return power_profile
 
