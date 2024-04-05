@@ -255,13 +255,12 @@ class TemplateMatchingGPU:
             self.plan.score_sum += self.plan.ccc_map
             self.plan.score_sum_squared += self.plan.ccc_map ** 2
 
-        mean = self.plan.score_sum / len(self.angle_ids)
         std = cp.sqrt(
             (self.plan.score_sum_squared -
                 (self.plan.score_sum ** 2 / len(self.angle_ids)))
             / (len(self.angle_ids) - 1)
         )
-        self.plan.scores = (self.plan.scores - mean) / std
+        self.plan.scores = self.plan.scores / std
         self.stats['search_space'] = int(roi_size * len(self.angle_ids))
         self.stats['variance'] = float(self.stats['variance'] / len(self.angle_ids))
         self.stats['std'] = float(cp.sqrt(self.stats['variance']))
