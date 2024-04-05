@@ -612,6 +612,7 @@ class TMJob:
             std = std_under_mask(template_conv, mask, mean)
             template_conv = (template_conv - mean) / std
             template_spectrum = profile_to_weighting(power_spectrum_profile(template_conv), template.shape)
+            template_spectrum /= template_spectrum.max()
 
             tomo_spectrum = np.load(self.whitening_filter)
             spectrum_filter = profile_to_weighting(tomo_spectrum, template.shape)
