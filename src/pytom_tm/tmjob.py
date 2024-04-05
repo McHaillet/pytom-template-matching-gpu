@@ -562,7 +562,12 @@ class TMJob:
             read_mrc(self.mask)
         )
         # apply mask directly to prevent any wedge convolution with weird edges
-        template *= mask
+        # template *= mask
+        ft = np.fft.rfftn(template)
+        amplitude = np.abs(ft)
+        new_phases = np.random.random_sample(amplitude.shape) * 2 * np.pi - np.pi
+        template_pr = np.fft.irfftn(amplitude * np.exp(1j * new_phases),
+                                    s=template.shape)
 
         # init tomogram and template weighting
         tomo_filter, template_wedge = 1, 1
@@ -645,6 +650,7 @@ class TMJob:
             device_id=gpu_id,
             volume=search_volume,
             template=template,
+            template_pr=template_pr,
             mask=mask,
             angle_list=angle_list,
             angle_ids=angle_ids,

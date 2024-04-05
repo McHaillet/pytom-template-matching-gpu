@@ -15,6 +15,7 @@ class TemplateMatchingPlan:
             self,
             volume: npt.NDArray[float],
             template: npt.NDArray[float],
+            template_pr: npt.NDArray[float],
             mask: npt.NDArray[float],
             device_id: int,
             wedge: Optional[npt.NDArray[float]] = None
@@ -27,6 +28,8 @@ class TemplateMatchingPlan:
             3D numpy array representing the search tomogram
         template: npt.NDArray[float]
             3D numpy array representing the template for the search, a square box of size sx
+        template_pr: npt.NDArray[float]
+            phase randomized version of template
         mask: npt.NDArray[float]
             3D numpy array representing the mask for the search, same dimensions as template
         device_id: int
@@ -54,6 +57,11 @@ class TemplateMatchingPlan:
         self.template = cp.asarray(template, dtype=cp.float32, order='C')
         self.template_texture = vt.StaticVolume(self.template, interpolation='filt_bspline', device=f'gpu:{device_id}')
         self.template_padded = cp.zeros_like(self.volume)
+        # Init phase random template
+        self.template_pr = cp.asarray(template_pr, dtype=cp.float32, order='C')
+        self.template_pr_texture = vt.StaticVolume(self.template_pr,
+                                                interpolation='filt_bspline',
+                                                device=f'gpu:{device_id}')
 
         # fourier binary wedge weight for the template
         self.wedge = cp.asarray(wedge, order='C', dtype=cp.float32) if wedge is not None else None
@@ -61,6 +69,7 @@ class TemplateMatchingPlan:
         # Initialize result volumes
         self.ccc_map = cp.zeros_like(self.volume)
         self.scores = cp.ones_like(self.volume)*-1000
+        self.scores_pr = cp.ones_like(self.volume) * -1000
         self.angles = cp.ones_like(self.volume)*-1000
 
         # wait for stream to complete the work
@@ -83,6 +92,7 @@ class TemplateMatchingGPU:
             device_id: int,
             volume: npt.NDArray[float],
             template: npt.NDArray[float],
+            template_pr: npt.NDArray[float],
             mask: npt.NDArray[float],
             angle_list: list[tuple[float, float, float]],
             angle_ids: list[int],
@@ -102,6 +112,8 @@ class TemplateMatchingGPU:
             3D numpy array of tomogram
         template: npt.NDArray[float]
             3D numpy array of template, square box of size sx
+        template_pr: npt.NDArray[float]
+            phase randomized version of template
         mask: npt.NDArray[float]
             3D numpy array with mask, same box size as template
         angle_list: list[tuple[float, float, float]]
@@ -136,7 +148,8 @@ class TemplateMatchingGPU:
         else:
             self.stats_roi = stats_roi
 
-        self.plan = TemplateMatchingPlan(volume, template, mask, device_id, wedge=wedge)
+        self.plan = TemplateMatchingPlan(volume, template, template_pr, mask,
+                                         device_id, wedge=wedge)
 
     def run(self) -> tuple[npt.NDArray[float], npt.NDArray[float], dict]:
         """Run the template matching job.
@@ -248,9 +261,50 @@ class TemplateMatchingGPU:
                 ) / roi_size
             )
 
+            # Rotate template
+            self.plan.template_pr_texture.transform(
+                rotation=(rotation[0], rotation[1], rotation[2]),
+                rotation_order='rzxz',
+                output=self.plan.template_pr,
+                rotation_units='rad'
+            )
+
+            if self.plan.wedge is not None:
+                # Add wedge to the template after rotating
+                self.plan.template_pr = irfftn(
+                    rfftn(self.plan.template_pr) * self.plan.wedge,
+                    s=self.plan.template.shape
+                ).real
+
+            # Normalize and mask template
+            mean = mean_under_mask(self.plan.template_pr, self.plan.mask,
+                                   mask_weight=self.plan.mask_weight)
+            std = std_under_mask(self.plan.template_pr, self.plan.mask, mean,
+                                 mask_weight=self.plan.mask_weight)
+            self.plan.template_pr = (((self.plan.template_pr - mean) / std) *
+                                     self.plan.mask)
+
+            # Paste in center
+            self.plan.template_padded[cxv - cxt:cxv + cxt + mx,
+            cyv - cyt:cyv + cyt + my,
+            czv - czt:czv + czt + mz] = self.plan.template_pr
+
+            # Fast local correlation function between volume and template, norm is the standard deviation at each
+            # point in the volume in the masked area
+            self.plan.ccc_map = fftshift(
+                irfftn(self.plan.volume_rft * rfftn(self.plan.template_padded).conj(),
+                       s=self.plan.template_padded.shape).real
+                / (self.plan.mask_weight * self.plan.std_volume)
+            )
+            self.plan.scores_pr[self.plan.ccc_map > self.plan.scores_pr] = (
+                self.plan.ccc_map)[self.plan.ccc_map > self.plan.scores_pr]
+
         self.stats['search_space'] = int(roi_size * len(self.angle_ids))
         self.stats['variance'] = float(self.stats['variance'] / len(self.angle_ids))
         self.stats['std'] = float(cp.sqrt(self.stats['variance']))
+
+        self.plan.scores = ((self.plan.scores - self.plan.scores_pr) +
+                            self.plan.scores_pr.mean())
 
         # package results back to the CPU
         results = (self.plan.scores.get(), self.plan.angles.get(), self.stats)
