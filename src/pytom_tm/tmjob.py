@@ -609,7 +609,7 @@ class TMJob:
         if self.whiten_spectrum:
             template_conv = np.fft.irfftn(np.fft.rfftn(template) * template_wedge, s=template.shape)
             mean = mean_under_mask(template_conv, mask)
-            std = std_under_mask(template_conv, mask)
+            std = std_under_mask(template_conv, mask, mean)
             template_conv = (template_conv - mean) / std
             template_spectrum = profile_to_weighting(power_spectrum_profile(template_conv), template.shape)
 
