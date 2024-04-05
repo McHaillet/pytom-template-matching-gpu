@@ -615,7 +615,7 @@ class TMJob:
 
             tomo_spectrum = np.load(self.whitening_filter)
             spectrum_filter = profile_to_weighting(tomo_spectrum, template.shape)
-            spectrum_filter /= template_spectrum
+            spectrum_filter[template_spectrum != 0] /= template_spectrum[template_spectrum != 0]
 
             template_wedge *= spectrum_filter
 
