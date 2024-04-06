@@ -266,8 +266,8 @@ class TMJob:
                 self.search_origin[1]: self.search_origin[1] + self.search_size[1],
                 self.search_origin[2]: self.search_origin[2] + self.search_size[2]
             ]
-            tomo = (tomo - tomo.max()) / tomo.std()
-            weights = (power_spectrum_profile(tomo))
+            tomo = (tomo - tomo.mean()) / tomo.std()
+            weights = 1 / power_spectrum_profile(tomo)
             weights /= weights.max()  # scale to 1
             np.save(self.whitening_filter, weights)
 
@@ -580,17 +580,27 @@ class TMJob:
                 self.high_pass
             ).astype(np.float32)
 
+        if self.whiten_spectrum:
+            template_norm = (template - template.mean()) / template.std()
+            template_spectrum = 1 / power_spectrum_profile(template_norm)
+            template_spectrum /= template_spectrum.max()
+            template_wedge *= profile_to_weighting(template_spectrum, template.shape)
+
+            tomo_spectrum = np.load(self.whitening_filter)
+            tomo_filter *= profile_to_weighting(tomo_spectrum, search_volume.shape)
+
         # if tilt angles are provided we can create wedge filters
         if self.tilt_angles is not None:
-            # for the tomogram a binary wedge is generated to explicitly set the missing wedge region to 0
-            # tomo_filter *= create_wedge(
-            #     search_volume.shape,
-            #     self.tilt_angles,
-            #     self.voxel_size,
-            #     cut_off_radius=1.,
-            #     angles_in_degrees=True,
-            #     tilt_weighting=False
-            # ).astype(np.float32)
+            # for the tomogram a binary wedge is generated to explicitly set the
+            # missing wedge region to 0
+            tomo_filter *= create_wedge(
+                search_volume.shape,
+                self.tilt_angles,
+                self.voxel_size,
+                cut_off_radius=1.,
+                angles_in_degrees=True,
+                tilt_weighting=False
+            ).astype(np.float32)
             # for the template a binary or per-tilt-weighted wedge is generated depending on the options
             template_wedge *= create_wedge(
                 self.template_shape,
@@ -604,21 +614,8 @@ class TMJob:
             ).astype(np.float32)
 
         # apply the optional band pass and whitening filter to the search region
-        search_volume = np.real(irfftn(rfftn(search_volume) * tomo_filter, s=search_volume.shape))
-
-        if self.whiten_spectrum:
-            template_conv = np.fft.irfftn(np.fft.rfftn(template) * template_wedge, s=template.shape)
-            mean = mean_under_mask(template_conv, mask)
-            std = std_under_mask(template_conv, mask, mean)
-            template_conv = (template_conv - mean) / std
-            template_spectrum = profile_to_weighting(power_spectrum_profile(template_conv), template.shape)
-            template_spectrum /= template_spectrum.max()
-
-            tomo_spectrum = np.load(self.whitening_filter)
-            spectrum_filter = profile_to_weighting(tomo_spectrum, template.shape)
-            spectrum_filter[template_spectrum != 0] /= template_spectrum[template_spectrum != 0]
-
-            template_wedge *= spectrum_filter
+        search_volume = np.real(irfftn(rfftn(search_volume) * tomo_filter,
+                                       s=search_volume.shape))
 
         template_conv = np.fft.irfftn(np.fft.rfftn(template) * template_wedge, s=template.shape)
         write_mrc('template.mrc', template_conv, self.voxel_size)
