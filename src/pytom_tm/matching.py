@@ -187,7 +187,7 @@ class TemplateMatchingGPU:
                 self.plan.mask_padded,
                 self.plan.mask_weight,
                 volume_rft=self.plan.volume_rft
-            )
+            ) * self.plan.mask_weight
 
         # Track iterations with a tqdm progress bar
         for i in tqdm(range(len(self.angle_ids))):
@@ -211,7 +211,7 @@ class TemplateMatchingGPU:
                     self.plan.mask_padded,
                     self.plan.mask_weight,
                     volume_rft=self.plan.volume_rft,
-                )
+                ) * self.plan.mask_weight
 
             # Rotate template
             self.plan.template_texture.transform(
@@ -242,8 +242,8 @@ class TemplateMatchingGPU:
             # point in the volume in the masked area
             self.plan.ccc_map = fftshift(
                 irfftn(self.plan.volume_rft * rfftn(self.plan.template_padded).conj(),
-                       s=self.plan.template_padded.shape).real
-                / (self.plan.mask_weight * self.plan.std_volume)
+                       s=self.plan.template_padded.shape)
+                / self.plan.std_volume
             )
 
             # Update the scores and angle_lists
@@ -293,8 +293,8 @@ class TemplateMatchingGPU:
             # point in the volume in the masked area
             self.plan.ccc_map = fftshift(
                 irfftn(self.plan.volume_rft * rfftn(self.plan.template_padded).conj(),
-                       s=self.plan.template_padded.shape).real
-                / (self.plan.mask_weight * self.plan.std_volume)
+                       s=self.plan.template_padded.shape)
+                / self.plan.std_volume
             )
             self.plan.scores_pr[self.plan.ccc_map > self.plan.scores_pr] = (
                 self.plan.ccc_map)[self.plan.ccc_map > self.plan.scores_pr]
