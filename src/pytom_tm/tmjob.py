@@ -12,7 +12,9 @@ from functools import reduce
 from scipy.fft import next_fast_len, rfftn, irfftn
 from pytom_tm.angles import AVAILABLE_ROTATIONAL_SAMPLING, load_angle_list
 from pytom_tm.matching import TemplateMatchingGPU
-from pytom_tm.weights import create_wedge, power_spectrum_profile, profile_to_weighting, create_gaussian_band_pass
+from pytom_tm.weights import (create_wedge, power_spectrum_profile,
+                              profile_to_weighting, create_gaussian_band_pass,
+                              radial_reduced_grid)
 from pytom_tm.io import read_mrc_meta_data, read_mrc, write_mrc, UnequalSpacingError
 from pytom_tm import __version__ as PYTOM_TM_VERSION
 
@@ -562,13 +564,17 @@ class TMJob:
             read_mrc(self.mask)
         )
         # apply mask directly to prevent any wedge convolution with weird edges
-        ft = np.fft.fftn(template)
+        grid = np.fft.ifftshift(
+            radial_reduced_grid(template.shape), axes=(0, 1)
+        ).flatten()
+        ft = np.fft.rfftn(template)
         amplitude = np.abs(ft)
-        phase = np.angle(ft)
-        noise_proportion = 1
-        phase_noise = np.reshape(np.random.permutation(phase.flatten()), template.shape)
-        ph_new = phase * (1 - noise_proportion) + phase_noise * noise_proportion
-        template_pr = np.real(np.fft.ifftn(amplitude * np.exp(1j * ph_new)))
+        phase = np.angle(ft).flatten()
+        phase_noise = np.zeros_like(phase)
+        phase_noise[grid <= 1] = np.random.permutation(phase[grid <= 1])
+        phase_noise = np.reshape(phase_noise, amplitude.shape)
+        template_pr = np.fft.irfftn(amplitude * np.exp(1j * phase_noise),
+                                    s=template.shape)
 
         # init tomogram and template weighting
         tomo_filter, template_wedge = 1, 1
