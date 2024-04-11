@@ -4,7 +4,7 @@ import numpy.typing as npt
 import voltools as vt
 import gc
 from typing import Optional
-from cupyx.scipy.fft import rfftn, irfftn, fftshift
+from cupyx.scipy.fft import rfftn, irfftn, ifftshift
 from tqdm import tqdm
 from pytom_tm.correlation import mean_under_mask, std_under_mask
 from packaging import version
@@ -174,7 +174,7 @@ class TemplateMatchingGPU:
                 self.plan.mask_padded,
                 self.plan.mask_weight,
                 volume_rft=self.plan.volume_rft
-            )
+            ) * self.plan.mask_weight
 
         # Track iterations with a tqdm progress bar
         for i in tqdm(range(len(self.angle_ids))):
@@ -198,7 +198,7 @@ class TemplateMatchingGPU:
                     self.plan.mask_padded,
                     self.plan.mask_weight,
                     volume_rft=self.plan.volume_rft,
-                )
+                ) * self.plan.mask_weight
 
             # Rotate template
             self.plan.template_texture.transform(
@@ -227,10 +227,10 @@ class TemplateMatchingGPU:
 
             # Fast local correlation function between volume and template, norm is the standard deviation at each
             # point in the volume in the masked area
-            self.plan.ccc_map = fftshift(
+            self.plan.ccc_map = ifftshift(
                 irfftn(self.plan.volume_rft * rfftn(self.plan.template_padded).conj(),
-                       s=self.plan.template_padded.shape).real
-                / (self.plan.mask_weight * self.plan.std_volume)
+                       s=self.plan.template_padded.shape)
+                / self.plan.std_volume
             )
 
             # Update the scores and angle_lists
