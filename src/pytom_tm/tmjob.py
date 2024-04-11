@@ -570,10 +570,10 @@ class TMJob:
         ft = np.fft.rfftn(template)
         amplitude = np.abs(ft)
         phase = np.angle(ft).flatten()
-        phase_noise = np.zeros_like(phase)
-        phase_noise[grid <= 1] = np.random.permutation(phase[grid <= 1])
-        phase_noise = np.reshape(phase_noise, amplitude.shape)
-        template_pr = np.fft.irfftn(amplitude * np.exp(1j * phase_noise),
+        noise = np.zeros_like(phase)
+        noise[grid <= 1] = np.random.permutation(phase[grid <= 1])
+        noise = np.reshape(noise, amplitude.shape)
+        template_pr = np.fft.irfftn(amplitude * np.exp(1j * noise),
                                     s=template.shape)
 
         # init tomogram and template weighting
