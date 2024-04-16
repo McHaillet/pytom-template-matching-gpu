@@ -635,6 +635,8 @@ class TMJob:
                 ctf_params_per_tilt=self.ctf_data
             ).astype(np.float32)
 
+        write_mrc(f"wedge_job{self.job_key}.mrc", template_wedge, self.voxel_size)
+
         # apply the optional band pass and whitening filter to the search region
         search_volume = np.real(irfftn(rfftn(search_volume) * tomo_filter, s=search_volume.shape))
 
