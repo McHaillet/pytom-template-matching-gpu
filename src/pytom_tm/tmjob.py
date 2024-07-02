@@ -403,10 +403,6 @@ class TMJob:
             else:
                 angle_increment = 7.0
         self.rotation_file = angle_increment
-        if job_loaded_for_extraction:
-            log_level = "DEBUG"
-        else:
-            log_level = "INFO"
         try:
             angle_list = get_angle_list(
                 angle_increment,
@@ -797,9 +793,10 @@ class TMJob:
                 )
                 for ctf, defocus_shift in zip(self.ctf_data, defocus_offsets):
                     ctf["defocus"] = ctf["defocus"] + defocus_shift
-                logging.debug(f"Patch center: {relative_patch_center}")
-                logging.debug(
-                    f"Defocus values: {[ctf['defocus'] for ctf in self.ctf_data]}"
+                logging.log(self.log_level, f"Patch center: {relative_patch_center}")
+                logging.log(
+                    self.log_level,
+                    f"Defocus values: {[ctf['defocus'] for ctf in self.ctf_data]}",
                 )
 
             # for the tomogram a binary wedge is generated to explicitly set the missing wedge region to 0
