@@ -933,6 +933,13 @@ def match_template(argv=None):
         "the tilt-series metadata from this file and overwrite all other "
         "metadata options.",
     )
+    additional_group.add_argument(
+        "--warp-xml-file",
+        type=pathlib.Path,
+        action=CheckFileExists,
+        required=False,
+        help="Here, you can provide a Warp xml file with metadata.",
+    )
     device_group = parser.add_argument_group("Device control")
     device_group.add_argument(
         "-g",
@@ -1002,6 +1009,16 @@ def match_template(argv=None):
         voxel_size, tilt_angles, dose_accumulation, ctf_params, defocus_handedness = (
             parse_relion5_star_data(
                 args.relion5_tomograms_star,
+                args.tomogram,
+                phase_flip_correction=phase_flip_correction,
+                phase_shift=args.phase_shift,
+            )
+        )
+        per_tilt_weighting = True
+    elif args.warp_xml_file is not None:
+        voxel_size, tilt_angles, dose_accumulation, ctf_params, defocus_handedness = (
+            parse_warp_xml_data(
+                args.warp_xml_file,
                 args.tomogram,
                 phase_flip_correction=phase_flip_correction,
                 phase_shift=args.phase_shift,

@@ -7,6 +7,7 @@ import numpy as np
 import starfile
 from contextlib import contextmanager
 from operator import attrgetter
+from lxml import etree
 
 
 class MultiColumnAngleFileError(ValueError):
@@ -612,6 +613,87 @@ def parse_relion5_star_data(
             tilt_series_star_data.rlnDefocusV + tilt_series_star_data.rlnDefocusU
         )
         / 2
+    ]
+
+    return (
+        tomogram_voxel_size,
+        tilt_angles,
+        dose_accumulation,
+        ctf_params,
+        defocus_handedness,
+    )
+
+
+def parse_warp_xml_data(
+    warp_xml_path: pathlib.Path,  # is specific to a singel tilt-series
+    tomogram_path: pathlib.Path,  # not needed
+    phase_flip_correction: bool = False,
+    phase_shift: float = 0.0,
+) -> tuple[float, list[float, ...], list[float, ...], list[dict, ...], int]:
+    """Read RELION5 metadata from a project directory.
+
+    Parameters
+    ----------
+    tomograms_star_path: pathlib.Path
+        the tomograms.star from a RELION5 reconstruct job contains invariable metadata
+        and points to a tilt series star file with fitted values
+    tomogram_path: pathlib.Path
+        path to the tomogram for template matching; we use the name to pattern match in
+        the RELION5 star file
+    phase_flip_correction: bool, default False
+    phase_shift: float, default 0.0
+
+    Returns
+    -------
+    tomogram_voxel_size, tilt_angles, dose_accumulation, ctf_params, defocus_handedness:
+        tuple[float, list[float, ...], list[float, ...], list[dict, ...], int]
+    """
+    # tomogram_id = tomogram_path.stem
+    tree = etree.parse(warp_xml_path)
+
+    tilt_name_nodes = tree.findall(".//MoviePath")
+    tilt_angle_nodes = tree.findall(".//Angles")
+    tilt_defocus_nodes = tree.findall(".//GridCTF/Node")
+    tilt_dose_nodes = tree.findall(".//Dose")
+
+    tilt_names = []
+    tilt_angles = []
+    tilt_defocus = []
+    tilt_dose = []
+
+    for ts_name in tilt_name_nodes:
+        text = ts_name.text
+        names = text.split('\n')
+        tilt_names.append(names)
+
+    for ts_angle in tilt_angle_nodes:
+        text = ts_angle.text
+        angles = text.split('\n')
+        tilt_angles.append(angles)
+
+    ts_defocus_values = []
+    for node in tilt_defocus_nodes:
+        ts_defocus_values.append(node.attrib['Value'])
+    tilt_defocus.append(ts_defocus_values)
+
+    for ts_dose in tilt_dose_nodes:
+        text = ts_dose.text
+        ts_cum_dose = text.split('\n')
+        tilt_dose.append(ts_cum_dose)
+
+    # voltage, amplitude contrast, and spherical aberration would need to be
+    # provided?
+
+    ctf_params = [
+        {
+            "defocus": defocus * 1e-10,
+            "amplitude_contrast": ...,
+            "voltage": voltage * 1e3,
+            "spherical_aberration": spherical_aberration * 1e-3,
+            "flip_phase": phase_flip_correction,
+            "phase_shift_deg": phase_shift,  # RELION5 does not seem to store this
+        }
+        for defocus in ts_defocus_values
     ]
 
     return (
