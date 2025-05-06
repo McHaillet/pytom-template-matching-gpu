@@ -21,7 +21,7 @@ class ParseLogging(argparse.Action):
     set these to info/debug."""
 
     def __call__(
-        self, parser, namespace, values: str, option_string: str | None = None
+            self, parser, namespace, values: str, option_string: str | None = None
     ):
         if values.upper() not in ["INFO", "DEBUG"]:
             parser.error(
@@ -37,11 +37,11 @@ class CheckDirExists(argparse.Action):
     """argparse.Action subclass to check if an expected input directory exists."""
 
     def __call__(
-        self,
-        parser,
-        namespace,
-        values: pathlib.Path,
-        option_string: str | None = None,
+            self,
+            parser,
+            namespace,
+            values: pathlib.Path,
+            option_string: str | None = None,
     ):
         if not values.is_dir():
             parser.error(f"{option_string} got a file path that does not exist ")
@@ -53,11 +53,11 @@ class CheckFileExists(argparse.Action):
     """argparse.Action subclass to check if an expected input file exists."""
 
     def __call__(
-        self,
-        parser,
-        namespace,
-        values: pathlib.Path,
-        option_string: str | None = None,
+            self,
+            parser,
+            namespace,
+            values: pathlib.Path,
+            option_string: str | None = None,
     ):
         if not values.exists():
             parser.error(f"{option_string} got a file path that does not exist ")
@@ -69,11 +69,11 @@ class LargerThanZero(argparse.Action):
     """argparse.Action subclass to constrain an input value to larger than zero only."""
 
     def __call__(
-        self,
-        parser,
-        namespace,
-        values: int | float,
-        option_string: str | None = None,
+            self,
+            parser,
+            namespace,
+            values: int | float,
+            option_string: str | None = None,
     ):
         if values <= 0.0:
             parser.error(f"{option_string} must be larger than 0")
@@ -86,7 +86,7 @@ class BetweenZeroAndOne(argparse.Action):
     0 and 1."""
 
     def __call__(
-        self, parser, namespace, values: float, option_string: str | None = None
+            self, parser, namespace, values: float, option_string: str | None = None
     ):
         if 1.0 <= values <= 0.0:
             parser.error(
@@ -102,11 +102,11 @@ class ParseSearch(argparse.Action):
     value is larger than the first."""
 
     def __call__(
-        self,
-        parser,
-        namespace,
-        values: list[int, int],
-        option_string: str | None = None,
+            self,
+            parser,
+            namespace,
+            values: list[int, int],
+            option_string: str | None = None,
     ):
         if not (0 <= values[0] < values[1]):
             parser.error(
@@ -128,11 +128,11 @@ class ParseTiltAngles(argparse.Action):
         super().__init__(*args, **kwargs)
 
     def __call__(
-        self,
-        parser,
-        namespace,
-        values: list[str, str] | str,
-        option_string: str | None = None,
+            self,
+            parser,
+            namespace,
+            values: list[str, str] | str,
+            option_string: str | None = None,
     ):
         if len(values) == 2:  # two wedge angles provided the min and max
             try:
@@ -174,11 +174,11 @@ class ParseGPUIndices(argparse.Action):
     """
 
     def __call__(
-        self,
-        parser,
-        namespace,
-        values: list[int, ...],
-        option_string: str | None = None,
+            self,
+            parser,
+            namespace,
+            values: list[int, ...],
+            option_string: str | None = None,
     ):
         import cupy
 
@@ -198,7 +198,7 @@ class ParseDoseFile(argparse.Action):
     dose per tilt."""
 
     def __call__(
-        self, parser, namespace, values: str, option_string: str | None = None
+            self, parser, namespace, values: str, option_string: str | None = None
     ):
         file_path = pathlib.Path(values)
         if not file_path.exists():
@@ -219,7 +219,7 @@ class ParseDefocus(argparse.Action):
     to their file format, or a txt file containing per line the defocus of each tilt."""
 
     def __call__(
-        self, parser, namespace, values: str, option_string: str | None = None
+            self, parser, namespace, values: str, option_string: str | None = None
     ):
         if values.endswith((".defocus", ".txt")):
             file_path = pathlib.Path(values)
@@ -244,9 +244,9 @@ class UnequalSpacingError(Exception):
 
 
 def write_angle_list(
-    data: npt.NDArray[float],
-    file_name: pathlib.Path,
-    order: tuple[int, int, int] = (0, 2, 1),
+        data: npt.NDArray[float],
+        file_name: pathlib.Path,
+        order: tuple[int, int, int] = (0, 2, 1),
 ):
     """Helper function to write angular search list from old PyTom to current module.
     Order had to be changed as old PyTom always stored it as Z1, Z2, X, and here it's
@@ -314,17 +314,17 @@ def read_mrc_meta_data(file_name: pathlib.Path) -> dict:
         # allow small numerical inconsistencies in voxel size of MRC headers, sometimes
         # seen in Warp
         if not all(
-            [
-                np.round(mrc.voxel_size.x, 3) == np.round(s, 3)
-                for s in attrgetter("y", "z")(mrc.voxel_size)
-            ]
+                [
+                    np.round(mrc.voxel_size.x, 3) == np.round(s, 3)
+                    for s in attrgetter("y", "z")(mrc.voxel_size)
+                ]
         ):
             raise UnequalSpacingError(
                 "Input volume voxel spacing is not identical in each dimension!"
             )
         else:
             if not all(
-                [mrc.voxel_size.x == s for s in attrgetter("y", "z")(mrc.voxel_size)]
+                    [mrc.voxel_size.x == s for s in attrgetter("y", "z")(mrc.voxel_size)]
             ):
                 logging.warning(
                     "Voxel size annotation in MRC is slightly different between "
@@ -336,11 +336,11 @@ def read_mrc_meta_data(file_name: pathlib.Path) -> dict:
 
 
 def write_mrc(
-    file_name: pathlib.Path,
-    data: npt.NDArray[float],
-    voxel_size: float,
-    overwrite: bool = True,
-    transpose: bool = True,
+        file_name: pathlib.Path,
+        data: npt.NDArray[float],
+        voxel_size: float,
+        overwrite: bool = True,
+        transpose: bool = True,
 ) -> None:
     """Write data to an MRC file. Data is transposed before writing as pytom internally
     uses xyz ordering and MRCs use zyx.
@@ -399,7 +399,7 @@ def read_mrc(file_name: pathlib.Path, transpose: bool = True) -> npt.NDArray[flo
 
 
 def read_txt_file(
-    file_name: pathlib.Path, error_on_multi_column: bool = True
+        file_name: pathlib.Path, error_on_multi_column: bool = True
 ) -> list[float, ...]:
     """Read a txt file from disk with on each line a single float value.
 
@@ -445,7 +445,7 @@ def read_txt_file(
 
 
 def read_tlt_file(
-    file_name: pathlib.Path, error_on_multi_column: bool = True
+        file_name: pathlib.Path, error_on_multi_column: bool = True
 ) -> list[float, ...]:
     """Read a txt file from disk using read_txt_file(). File is expected to have tilt
     angles in degrees.
@@ -503,7 +503,7 @@ def read_imod_defocus_file(file_name: pathlib.Path) -> list[float, ...]:
     if imod_defocus_version == 2:  # file with one defocus value; data starts on line 0
         return [float(x.strip().split()[4]) * 1e-3 for x in lines]
     elif (
-        imod_defocus_version == 3
+            imod_defocus_version == 3
     ):  # file with astigmatism; line 0 contains metadata that we do not need
         return [
             (float(x.strip().split()[4]) + float(x.strip().split()[5])) / 2 * 1e-3
@@ -539,10 +539,10 @@ def read_defocus_file(file_name: pathlib.Path) -> list[float, ...]:
 
 
 def parse_relion5_star_data(
-    tomograms_star_path: pathlib.Path,
-    tomogram_path: pathlib.Path,
-    phase_flip_correction: bool = False,
-    phase_shift: float = 0.0,
+        tomograms_star_path: pathlib.Path,
+        tomogram_path: pathlib.Path,
+        phase_flip_correction: bool = False,
+        phase_shift: float = 0.0,
 ) -> tuple[float, list[float, ...], list[float, ...], list[dict, ...], int]:
     """Read RELION5 metadata from a project directory.
 
@@ -612,9 +612,9 @@ def parse_relion5_star_data(
             "phase_shift_deg": phase_shift,  # RELION5 does not seem to store this
         }
         for defocus in (
-            tilt_series_star_data.rlnDefocusV + tilt_series_star_data.rlnDefocusU
-        )
-        / 2
+                               tilt_series_star_data.rlnDefocusV + tilt_series_star_data.rlnDefocusU
+                       )
+                       / 2
     ]
 
     return (
@@ -627,55 +627,45 @@ def parse_relion5_star_data(
 
 
 def parse_warp_xml_data(
-        tomogram_pixel_size: float,
-    warp_xml_path: pathlib.Path,  # is specific to a single tilt-series
-    phase_flip_correction: bool = False,
-    phase_shift: float = 0.0,
+        tomogram_voxel_size: float,
+        warp_xml_path: pathlib.Path,
+        phase_flip_correction: bool = False,
+) -> tuple[float, list[float], list[float], list[dict[str, float | bool | float]], int]:
+    """Read WarpTools metadata from a project directory."""
 
-) -> tuple[Any, list[Any], list[Any], list[dict[str, float | bool | Any]], Any]:
-    """Read WarpTools metadata from a project directory.
+    def _flatten(t):
+        return [float(item) for sublist in t for item in sublist if item.strip()]
 
-    Parameters
-    ----------
-    warp_xml_path: pathlib.Path
-        the tomograms.star from a WarpTools reconstruct job contains invariable metadata
-        and points to a tilt series star file with fitted values
-    phase_flip_correction: bool, default False
-    phase_shift: float, default 0.0
-
-    Returns
-    -------
-    tomogram_voxel_size, tilt_angles, dose_accumulation, ctf_params, defocus_handedness:
-        tuple[float, list[float, ...], list[float, ...], list[dict, ...], int]
-    """
     tree = etree.parse(warp_xml_path)
 
     tilt_angle_nodes = tree.findall(".//Angles")
     tilt_defocus_nodes = tree.findall(".//GridCTF/Node")
     tilt_dose_nodes = tree.findall(".//Dose")
 
-    voltage = tree.xpath(".//OptionsCTF/Param[@Name='Voltage']/@Value")[0]
-    spherical_aberration = tree.xpath(".//OptionsCTF/Param[@Name='Cs']/@Value")[0]
-    amplitude_contrast = tree.xpath(".//OptionsCTF/Param[@Name='Amplitude']/@Value")[0]
+    voltage = float(tree.xpath(".//OptionsCTF/Param[@Name='Voltage']/@Value")[0])
+    spherical_aberration = float(tree.xpath(".//OptionsCTF/Param[@Name='Cs']/@Value")[0])
+    amplitude_contrast = float(tree.xpath(".//OptionsCTF/Param[@Name='Amplitude']/@Value")[0])
+    phase_shift = float(tree.xpath(".//CTF/Param[@Name='PhaseShift']/@Value")[0])
 
     tilt_angles = []
-    tilt_defocus = []
     tilt_dose = []
 
     for ts_angle in tilt_angle_nodes:
         text = ts_angle.text
-        angles = text.split('\n')
+        angles = [a for a in text.split('\n') if a.strip()]
         tilt_angles.append(angles)
 
-    ts_defocus_values = []
+    defocus_values = []
     for node in tilt_defocus_nodes:
-        ts_defocus_values.append(node.attrib['Value'])
-    tilt_defocus.append(ts_defocus_values)
+        defocus_values.append(float(node.attrib['Value']))
 
     for ts_dose in tilt_dose_nodes:
         text = ts_dose.text
-        ts_cum_dose = text.split('\n')
+        ts_cum_dose = [d for d in text.split('\n') if d.strip()]
         tilt_dose.append(ts_cum_dose)
+
+    flattened_tilt_angles = _flatten(tilt_angles)
+    flattened_tilt_dose = _flatten(tilt_dose)
 
     ctf_params = [
         {
@@ -686,12 +676,12 @@ def parse_warp_xml_data(
             "flip_phase": phase_flip_correction,
             "phase_shift_deg": phase_shift,
         }
-        for defocus in ts_defocus_values
+        for defocus in defocus_values
     ]
 
     return (
-        tomogram_pixel_size,
-        tilt_angles,
-        tilt_dose,
+        tomogram_voxel_size,
+        flattened_tilt_angles,
+        flattened_tilt_dose,
         ctf_params,
     )

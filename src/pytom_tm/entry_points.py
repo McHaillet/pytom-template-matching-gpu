@@ -20,6 +20,7 @@ from pytom_tm.io import (
     BetweenZeroAndOne,
     ParseGPUIndices,
     parse_relion5_star_data,
+    parse_warp_xml_data
 )
 from pytom_tm.tmjob import load_json_to_tmjob
 from os import urandom
@@ -1016,7 +1017,7 @@ def match_template(argv=None):
         )
         per_tilt_weighting = True
     elif args.warp_xml_file is not None:
-        voxel_size, tilt_angles, dose_accumulation, ctf_params, defocus_handedness = (
+        voxel_size, tilt_angles, dose_accumulation, ctf_params = (
             parse_warp_xml_data(
                 args.warp_xml_file,
                 args.tomogram,
