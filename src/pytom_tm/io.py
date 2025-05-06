@@ -1,4 +1,6 @@
 import pathlib
+from typing import Tuple, Any, List, Dict
+
 import mrcfile
 import argparse
 import logging
@@ -625,21 +627,17 @@ def parse_relion5_star_data(
 
 
 def parse_warp_xml_data(
-    warp_xml_path: pathlib.Path,  # is specific to a singel tilt-series
-    tomogram_path: pathlib.Path,  # not needed
+    warp_xml_path: pathlib.Path,  # is specific to a single tilt-series
     phase_flip_correction: bool = False,
     phase_shift: float = 0.0,
-) -> tuple[float, list[float, ...], list[float, ...], list[dict, ...], int]:
-    """Read RELION5 metadata from a project directory.
+) -> tuple[Any, list[Any], list[Any], list[dict[str, float | bool | Any]], Any]:
+    """Read WarpTools metadata from a project directory.
 
     Parameters
     ----------
-    tomograms_star_path: pathlib.Path
-        the tomograms.star from a RELION5 reconstruct job contains invariable metadata
+    warp_xml_path: pathlib.Path
+        the tomograms.star from a WarpTools reconstruct job contains invariable metadata
         and points to a tilt series star file with fitted values
-    tomogram_path: pathlib.Path
-        path to the tomogram for template matching; we use the name to pattern match in
-        the RELION5 star file
     phase_flip_correction: bool, default False
     phase_shift: float, default 0.0
 
@@ -648,13 +646,17 @@ def parse_warp_xml_data(
     tomogram_voxel_size, tilt_angles, dose_accumulation, ctf_params, defocus_handedness:
         tuple[float, list[float, ...], list[float, ...], list[dict, ...], int]
     """
-    # tomogram_id = tomogram_path.stem
     tree = etree.parse(warp_xml_path)
 
     tilt_name_nodes = tree.findall(".//MoviePath")
     tilt_angle_nodes = tree.findall(".//Angles")
     tilt_defocus_nodes = tree.findall(".//GridCTF/Node")
     tilt_dose_nodes = tree.findall(".//Dose")
+
+    voltage = tree.xpath(".//OptionsCTF/Param[@Name='Voltage']/@Value")[0]
+    spherical_aberration = tree.xpath(".//OptionsCTF/Param[@Name='Cs']/@Value")[0]
+    unbinned_ts_pixel_size = tree.xpath(".//OptionsCTF/Param[@Name='PixelSize']/@Value")[0]
+    amplitude_contrast = tree.xpath(".//OptionsCTF/Param[@Name='Amplitude']/@Value")[0]
 
     tilt_names = []
     tilt_angles = []
@@ -681,25 +683,21 @@ def parse_warp_xml_data(
         ts_cum_dose = text.split('\n')
         tilt_dose.append(ts_cum_dose)
 
-    # voltage, amplitude contrast, and spherical aberration would need to be
-    # provided?
-
     ctf_params = [
         {
             "defocus": defocus * 1e-10,
-            "amplitude_contrast": ...,
+            "amplitude_contrast": amplitude_contrast,
             "voltage": voltage * 1e3,
             "spherical_aberration": spherical_aberration * 1e-3,
             "flip_phase": phase_flip_correction,
-            "phase_shift_deg": phase_shift,  # RELION5 does not seem to store this
+            "phase_shift_deg": phase_shift,
         }
         for defocus in ts_defocus_values
     ]
 
     return (
-        tomogram_voxel_size,
+        unbinned_ts_pixel_size,
         tilt_angles,
-        dose_accumulation,
+        tilt_dose,
         ctf_params,
-        defocus_handedness,
     )
