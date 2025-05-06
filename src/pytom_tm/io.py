@@ -627,9 +627,11 @@ def parse_relion5_star_data(
 
 
 def parse_warp_xml_data(
+        tomogram_pixel_size: float,
     warp_xml_path: pathlib.Path,  # is specific to a single tilt-series
     phase_flip_correction: bool = False,
     phase_shift: float = 0.0,
+
 ) -> tuple[Any, list[Any], list[Any], list[dict[str, float | bool | Any]], Any]:
     """Read WarpTools metadata from a project directory.
 
@@ -648,25 +650,17 @@ def parse_warp_xml_data(
     """
     tree = etree.parse(warp_xml_path)
 
-    tilt_name_nodes = tree.findall(".//MoviePath")
     tilt_angle_nodes = tree.findall(".//Angles")
     tilt_defocus_nodes = tree.findall(".//GridCTF/Node")
     tilt_dose_nodes = tree.findall(".//Dose")
 
     voltage = tree.xpath(".//OptionsCTF/Param[@Name='Voltage']/@Value")[0]
     spherical_aberration = tree.xpath(".//OptionsCTF/Param[@Name='Cs']/@Value")[0]
-    unbinned_ts_pixel_size = tree.xpath(".//OptionsCTF/Param[@Name='PixelSize']/@Value")[0]
     amplitude_contrast = tree.xpath(".//OptionsCTF/Param[@Name='Amplitude']/@Value")[0]
 
-    tilt_names = []
     tilt_angles = []
     tilt_defocus = []
     tilt_dose = []
-
-    for ts_name in tilt_name_nodes:
-        text = ts_name.text
-        names = text.split('\n')
-        tilt_names.append(names)
 
     for ts_angle in tilt_angle_nodes:
         text = ts_angle.text
@@ -696,7 +690,7 @@ def parse_warp_xml_data(
     ]
 
     return (
-        unbinned_ts_pixel_size,
+        tomogram_pixel_size,
         tilt_angles,
         tilt_dose,
         ctf_params,
