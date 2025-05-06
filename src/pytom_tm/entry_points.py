@@ -20,8 +20,8 @@ from pytom_tm.io import (
     BetweenZeroAndOne,
     ParseGPUIndices,
     parse_relion5_star_data,
-    parse_warp_xml_data
 )
+from pytom_tm.io import parse_warp_xml_data 
 from pytom_tm.tmjob import load_json_to_tmjob
 from os import urandom
 
@@ -938,7 +938,7 @@ def match_template(argv=None):
         "--warp-xml-file",
         type=pathlib.Path,
         action=CheckFileExists,
-        required=False,
+        required=True,
         help="Here, you can provide a Warp xml file with metadata.",
     )
     device_group = parser.add_argument_group("Device control")
@@ -1016,13 +1016,13 @@ def match_template(argv=None):
             )
         )
         per_tilt_weighting = True
+    
     elif args.warp_xml_file is not None:
-        voxel_size, tilt_angles, dose_accumulation, ctf_params = (
+        voxel_size, tilt_angles, dose_accumulation, ctf_params, defocus_handedness = (
             parse_warp_xml_data(
                 args.warp_xml_file,
                 args.tomogram,
                 phase_flip_correction=phase_flip_correction,
-                phase_shift=args.phase_shift,
             )
         )
         per_tilt_weighting = True

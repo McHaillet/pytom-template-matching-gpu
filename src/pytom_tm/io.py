@@ -625,13 +625,40 @@ def parse_relion5_star_data(
         defocus_handedness,
     )
 
-
 def parse_warp_xml_data(
-        tomogram_voxel_size: float,
         warp_xml_path: pathlib.Path,
+        tomogram_path: pathlib.Path,
         phase_flip_correction: bool = False,
+        phase_shift: float = 0.0,
 ) -> tuple[float, list[float], list[float], list[dict[str, float | bool | float]], int]:
-    """Read WarpTools metadata from a project directory."""
+    """Read WarpTools metadata from a project directory.
+    
+    Parameters
+    ----------
+    warp_xml_path: pathlib.Path
+        path to the warp XML file containing metadata
+    tomogram_path: pathlib.Path
+        path to the tomogram for template matching
+    phase_flip_correction: bool, default False
+        whether phase flip correction was applied
+    phase_shift: float, default 0.0
+        phase shift in degrees
+        
+    Returns
+    -------
+    tomogram_voxel_size, tilt_angles, dose_accumulation, ctf_params:
+        tuple[float, list[float], list[float], list[dict], int]
+    """
+    # First determine the tomogram_voxel_size from the tomogram_path
+    try:
+        # Try to read voxel size from MRC file
+        tomogram_meta = read_mrc_meta_data(tomogram_path)
+        tomogram_voxel_size = tomogram_meta["voxel_size"]
+    except Exception as e:
+        logging.warning(f"Could not read voxel size from tomogram: {e}")
+        # Default value if reading fails
+        tomogram_voxel_size = 1.0
+        logging.warning(f"Using default voxel size: {tomogram_voxel_size}. Results may be incorrect!")
 
     def _flatten(t):
         return [float(item) for sublist in t for item in sublist if item.strip()]
@@ -679,9 +706,13 @@ def parse_warp_xml_data(
         for defocus in defocus_values
     ]
 
+    # Default defocus handedness to 0 (no correction) for compatibility with return value expectations
+    defocus_handedness = 0
+
     return (
         tomogram_voxel_size,
         flattened_tilt_angles,
         flattened_tilt_dose,
         ctf_params,
+        defocus_handedness,
     )
