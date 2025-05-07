@@ -938,7 +938,7 @@ def match_template(argv=None):
         "--warp-xml-file",
         type=pathlib.Path,
         action=CheckFileExists,
-        required=True,
+        required=False,
         help="Here, you can provide a Warp xml file with metadata.",
     )
     device_group = parser.add_argument_group("Device control")
